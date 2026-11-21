@@ -1,16 +1,24 @@
 # ================================================================
 # 0. IMPORTS AND API SETUP
 # ================================================================
-# os, random, streamlit, dotenv, genai
-# load_dotenv(), read GEMINI_API_KEY, create client (or None if no key)
-# MODEL_NAME constant
+import os
+import random
 
+import streamlit as st
+from dotenv import load_dotenv
+from google import genai
 
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+
+client = genai.Client(api_key=api_key) if api_key else None
+
+MODEL_NAME = "gemini-3.5-flash-lite"
 # ================================================================
 # 1. PAGE SETUP
 # ================================================================
-# st.set_page_config(...)
-# st.title(...)
+st.set_page_config(page_title="ART GALLERY HEIST", page_icon="🎨", layout="centered")
+st.title("🎨 ART GALLERY HEIST")
 #===============================================================
 # 2. GAME STATE SETUP
 # ================================================================
