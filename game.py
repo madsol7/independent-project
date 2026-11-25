@@ -1,5 +1,5 @@
 # ================================================================
-# 0. IMPORTS AND API SETUP
+# IMPORTS AND API KEY
 # ================================================================
 import os
 import random
@@ -14,7 +14,8 @@ client = genai.Client(api_key=api_key) if api_key else None
 
 MODEL_NAME = "gemini-3.5-flash-lite"
 
-# GAME SETTINGS (change the balance here, nowhere else)
+
+#  GAME SETTINGS (change the balance here, nowhere else)
 STARTING_HEALTH = 5
 EASY_TARGET = 4         # roll needed for every dice challenge
 BONUS = 1               # added to a roll when you own the right item
@@ -47,7 +48,7 @@ if "action_complete" not in st.session_state:
 
 
 # ================================================================
-# 3. GAME FLOW FUNCTIONS
+# 3. GAME FUNCTIONS
 # ================================================================
 def start_game(name):
     """Set the starting values for a new run."""
@@ -62,8 +63,7 @@ def start_game(name):
     st.session_state.result_value = ""
     st.session_state.action_complete = False
 
-    # Gloves, painting, pass and jewels are checked in the inventory,
-    # so the only extra thing to track is the cameras.
+
     st.session_state.cameras_disabled = False
 
 
@@ -135,7 +135,7 @@ def show_continue_button(text="Continue"):
 
 
 # ================================================================
-# 4. INVENTORY AND HEALTH HELPERS
+# 4. INVENTORY AND HEALTH
 # ================================================================
 def add_item(item):
     if item not in st.session_state.inventory:
@@ -166,7 +166,7 @@ def heal_player(amount):
 
 
 # ================================================================
-# 5. AI STORYTELLER (GEMINI)
+# 5. GEMINI
 # ================================================================
 def generate_story(room, action, outcome, fallback_message):
     if client is None:
@@ -216,7 +216,7 @@ Do not introduce new choices.
 
 
 # ================================================================
-# 6. DICE AND RESULT LOGIC
+# 6. DICE GAME
 # ================================================================
 def roll_dice():
     return random.randint(1, 6)
@@ -360,7 +360,7 @@ else:
     room = get_current_room()
 
     # ============================================================
-    # ALL ROOM CONDITIONS
+    # ROOMS
     # ============================================================
 
     if room == "foyer":
