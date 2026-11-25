@@ -17,6 +17,7 @@ MODEL_NAME = "gemini-3.5-flash-lite"
 # GAME SETTINGS (change the balance here, nowhere else)
 STARTING_HEALTH = 5
 EASY_TARGET = 4         # roll needed for every dice challenge
+BONUS = 1               # added to a roll when you own the right item
 NORMAL_DAMAGE = 2       # health lost on a failed challenge or leaving the cameras on
 CORRIDOR_DAMAGE = 3     # health lost for not opening your bag
 GETAWAY_HEAL = 1        # health gained for a clean staff exit
@@ -219,6 +220,18 @@ Do not introduce new choices.
 # ================================================================
 def roll_dice():
     return random.randint(1, 6)
+
+
+def roll_with_bonus(bonus_item=""):
+    """Roll the dice and add BONUS if the player owns the bonus item.
+    Returns the final total and a text version such as '3 + 1 bonus = 4'."""
+    roll = roll_dice()
+    bonus = BONUS if bonus_item and has_item(bonus_item) else 0
+    total = roll + bonus
+
+    if bonus:
+        return total, f"{roll} + {bonus} bonus = {total}"
+    return total, str(roll)
 
 
 def set_result(result_type, message, value=None):
@@ -427,34 +440,49 @@ else:
                 if st.button("➡️ Leave the cameras"):
                     take_damage(NORMAL_DAMAGE)
                     st.session_state.cctv_stage = "choose"  # reset for a replay
-                    set_result(
-                        "damage",
+                    story = generate_story(
+                        "CCTV room",
+                        "You leave the cameras running and slip out of the room.",
+                        "A camera swings round and catches you, and you are hurt.",
                         "You leave the cameras running and slip out of the room. "
-                        "A camera swings round and catches you.",
-                        NORMAL_DAMAGE
+                        "A camera swings round and catches you."
                     )
+                    set_result("damage", story, NORMAL_DAMAGE)
 
         # Step 2: roll the dice
         elif stage == "roll":
             st.write("You reach for the control panel. Roll to see if you get it right.")
 
+            if has_item("Torch"):
+                st.caption(f"🔦 Your torch helps you read the panel: +{BONUS} to this roll.")
+
             if st.button("🎲 Roll the dice"):
-                roll = roll_dice()
+                final_roll, roll_text = roll_with_bonus("Torch")
                 st.session_state.cctv_stage = "choose"  # reset for a replay
 
-                if roll >= EASY_TARGET:
+                action = "You try to disable the CCTV cameras before the guards notice."
+
+                if final_roll >= EASY_TARGET:
                     disable_cameras()
+                    story = generate_story(
+                        "CCTV room", action,
+                        "The cameras are disabled.",
+                        "You find the correct controls and switch off the camera system."
+                    )
                     set_result(
                         "success",
-                        f"You rolled {roll} and needed {EASY_TARGET}. You find the "
-                        "correct controls and switch off the camera system."
+                        f"You rolled {roll_text} and needed {EASY_TARGET}.\n\n{story}"
                     )
                 else:
+                    story = generate_story(
+                        "CCTV room", action,
+                        "You press the wrong control and the cameras stay live.",
+                        "You press the wrong control and the cameras stay live. "
+                        "The guards may have noticed."
+                    )
                     set_result(
                         "story",
-                        f"You rolled {roll} but needed {EASY_TARGET}. You press the "
-                        "wrong control and the cameras stay live. The guards may "
-                        "have noticed."
+                        f"You rolled {roll_text} but needed {EASY_TARGET}.\n\n{story}"
                     )
 
     elif room == "gallery":
@@ -488,24 +516,39 @@ else:
             st.write("The motion sensor is watching. Steady hands. Roll to see "
                      "if you can lift the painting quietly.")
 
+            if has_item("Black gloves"):
+                st.caption(f"🧤 Your gloves give you a steady grip: +{BONUS} to this roll.")
+
             if st.button("🎲 Roll the dice"):
-                roll = roll_dice()
+                final_roll, roll_text = roll_with_bonus("Black gloves")
                 take_painting()  # you always leave with the painting
                 st.session_state.gallery_stage = "choose"  # reset for a replay
 
-                if roll >= EASY_TARGET:
+                action = "You carefully remove the painting from its display."
+
+                if final_roll >= EASY_TARGET:
+                    story = generate_story(
+                        "Main gallery", action,
+                        "You steal the painting without triggering the sensor.",
+                        "You lift the painting from the wall and slide it safely "
+                        "into your bag without a sound."
+                    )
                     set_result(
                         "success",
-                        f"You rolled {roll} and needed {EASY_TARGET}. You lift the "
-                        "painting from the wall and slide it safely into your bag "
-                        "without a sound."
+                        f"You rolled {roll_text} and needed {EASY_TARGET}.\n\n{story}"
                     )
                 else:
                     take_damage(NORMAL_DAMAGE)
+                    story = generate_story(
+                        "Main gallery", action,
+                        "You trigger the motion sensor. You grab the painting, "
+                        "but the alarm sounds and you are hurt.",
+                        "The sensor flashes red. You grab the painting, but the "
+                        "alarm sounds."
+                    )
                     set_result(
                         "damage",
-                        f"You rolled {roll} but needed {EASY_TARGET}. The sensor "
-                        "flashes red. You grab the painting, but the alarm sounds.",
+                        f"You rolled {roll_text} but needed {EASY_TARGET}.\n\n{story}",
                         NORMAL_DAMAGE
                     )
 
@@ -526,11 +569,18 @@ else:
             if st.button("💎 Enter the vault and steal the jewels"):
                 if has_item("Security pass"):
                     add_item("Jewels")
-                    set_result(
-                        "item",
+                    remove_item("Security pass")  # the pass is used up
+                    story = generate_story(
+                        "Vault",
+                        "You swipe the security pass to open the vault door.",
+                        "The vault opens and you take the jewels.",
                         "You swipe the security pass and the vault door clicks open. "
                         "You scoop up the jewels and tuck them beside the painting. "
-                        "Time for your getaway.",
+                        "Time for your getaway."
+                    )
+                    set_result(
+                        "item",
+                        f"{story}\n\nThe security pass is used up.",
                         "Jewels"
                     )
                 else:
@@ -557,41 +607,56 @@ else:
             "choose your way out."
         )
 
+        if has_item("Torch"):
+            st.caption(f"🔦 Your torch lights the staff corridor: +{BONUS} if you "
+                       "take the staff exit.")
+
         left, right = st.columns(2)
 
         with left:
             if st.button("🚪 Slip out through the staff exit at the back"):
-                roll = roll_dice()
+                final_roll, roll_text = roll_with_bonus("Torch")
+                action = "You slip out through the staff exit at the back."
 
-                if roll >= EASY_TARGET:
+                if final_roll >= EASY_TARGET:
                     healed = heal_player(GETAWAY_HEAL)
-                    message = (
-                        f"You rolled {roll} and needed {EASY_TARGET}. The staff exit "
-                        "is quiet and you catch your breath in the corridor."
+                    story = generate_story(
+                        "Getaway", action,
+                        "The staff exit is quiet and you catch your breath.",
+                        "The staff exit is quiet and you catch your breath in "
+                        "the corridor."
                     )
+                    message = f"You rolled {roll_text} and needed {EASY_TARGET}.\n\n{story}"
                     if healed > 0:
                         set_result("heal", message, healed)
                     else:
                         set_result("success", message)
                 else:
                     take_damage(NORMAL_DAMAGE)
+                    story = generate_story(
+                        "Getaway", action,
+                        "A guard is in the staff corridor. You scramble past him "
+                        "but are hurt.",
+                        "A guard is on his break in the staff corridor. You scramble "
+                        "past him, but not without taking a knock."
+                    )
                     set_result(
                         "damage",
-                        f"You rolled {roll} but needed {EASY_TARGET}. A guard is on "
-                        "his break in the staff corridor. You scramble past him, "
-                        "but not without taking a knock.",
+                        f"You rolled {roll_text} but needed {EASY_TARGET}.\n\n{story}",
                         NORMAL_DAMAGE
                     )
 
         with right:
             if st.button("🏃 Go back the way you came"):
                 take_damage(BACKTRACK_DAMAGE)
-                set_result(
-                    "damage",
+                story = generate_story(
+                    "Getaway",
+                    "You retrace your steps back through the gallery.",
+                    "The guards clip you on the way past and you are hurt.",
                     "You retrace your steps through the gallery. It's the route you "
-                    "know, but the guards clip you on the way past.",
-                    BACKTRACK_DAMAGE
+                    "know, but the guards clip you on the way past."
                 )
+                set_result("damage", story, BACKTRACK_DAMAGE)
 
     elif room == "exit":
 
