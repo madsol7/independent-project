@@ -63,7 +63,6 @@ def start_game(name):
     st.session_state.result_value = ""
     st.session_state.action_complete = False
 
-
     st.session_state.cameras_disabled = False
 
 
@@ -95,11 +94,12 @@ def show_room(title, description):
 
 
 def show_player_info():
-    st.subheader(f"🕴 {st.session_state.player_name}")
+    icon = st.session_state.get("icon", "🕵️")
+    st.subheader(f"{icon} {st.session_state.player_name}")
     left, right = st.columns(2)
 
     with left:
-        st.write(f"⛑️ Health: {st.session_state.health} / {st.session_state.max_health}")
+        st.write(f"🔋 Nerve: {st.session_state.health} / {st.session_state.max_health}")
 
     with right:
         st.write(f"💼 Inventory: {', '.join(st.session_state.inventory)}")
@@ -115,12 +115,18 @@ def show_result():
     kind = st.session_state.result_type
     value = st.session_state.result_value
 
+    # Colour wash: red for damage, green for good news
+    if kind == "damage":
+        tint_background(RED_TINT)
+    elif kind in ("item", "heal", "success"):
+        tint_background(GREEN_TINT)
+
     if kind == "item":
-        st.success(f"👜 NEW ITEM: {value}")
+        st.success(f"💼 NEW ITEM: {value}")
     elif kind == "damage":
-        st.error(f"💢 DAMAGE: You lose {value} health.")
+        st.error(f"💢 DAMAGE: You lose {value} Nerve.")
     elif kind == "heal":
-        st.success(f"💖 HEALED: You recover {value} health.")
+        st.success(f"💖 HEALED: You recover {value} Nerve.")
     elif kind == "success":
         st.success("🎉 Success!")
     else:
@@ -234,6 +240,15 @@ def roll_with_bonus(bonus_item=""):
     return total, str(roll)
 
 
+def show_roll_rules(goal, bonus_item="", bonus_note=""):
+    """Tell the player WHY they are rolling and what they need, before they roll."""
+    st.markdown(f"🎯 **Goal:** {goal}")
+    st.markdown(f"🎲 Roll **{EASY_TARGET} or more** to succeed.")
+
+    if bonus_item and has_item(bonus_item):
+        st.caption(f"{bonus_note}: +{BONUS} to this roll.")
+
+
 def set_result(result_type, message, value=None):
     st.session_state.result_type = result_type
     st.session_state.result_message = message
@@ -249,6 +264,27 @@ def disable_cameras():
 
 def take_painting():
     add_item("Stolen painting")
+
+
+# COLOUR WASH: a see-through layer, so it works on light and dark themes
+RED_TINT = "rgba(255, 0, 0, 0.14)"
+GREEN_TINT = "rgba(0, 200, 100, 0.12)"
+
+
+def tint_background(colour):
+    st.markdown(
+        f"""<style>
+        .stApp::before {{
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: {colour};
+            pointer-events: none;
+            z-index: 0;
+        }}
+        </style>""",
+        unsafe_allow_html=True
+    )
 
 
 # ================================================================
@@ -290,16 +326,28 @@ ENDINGS = {
 # 8. START SCREEN
 # ================================================================
 if not st.session_state.game_started:
-
     st.write("Welcome to the Art Gallery Heist!")
-    st.write(
-        "Your mission is to enter the gallery, steal the famous painting "
-        "and escape without getting caught. Make the right choices!"
-    )
+
+    with st.container(border=True):
+        st.markdown("### 🎯 Your mission")
+        st.markdown(
+            "Steal the **famous painting**. "
+            "Leave **no fingerprints**. "
+            "Escape **before the guards catch you**."
+        )
 
     # A form lets the player press Enter to submit their name
+    ICONS = ["👩", "🧑", "🕵️"]
+
     with st.form("start_form"):
         name = st.text_input("What is your name?", max_chars=MAX_NAME_LENGTH)
+        choice = st.pills(
+            "Choose your game icon ⋆˙𖠋𖠋𖠋𖠋𖠋⋆˚",
+            ICONS,
+            default="🕵️",
+            selection_mode="single",
+        )
+
         submitted = st.form_submit_button("Enter the Gallery")
 
     if submitted:
@@ -307,24 +355,37 @@ if not st.session_state.game_started:
         clean_name = " ".join(name.split())[:MAX_NAME_LENGTH]
 
         if clean_name:
+            st.session_state.icon = choice or "🕵️"
             start_game(clean_name)
             st.rerun()
         else:
             st.warning("Enter your name first.")
 
 else:
+    with st.sidebar:
+        if st.button("🏠 Restart"):
+            restart_game()
 
     # GAME HAS STARTED
     show_player_info()
+    name = st.session_state.player_name
+
+    st.progress(st.session_state.room_number / len(ROOMS))
+    track = ["▫️"] * len(ROOMS)
+    track[min(st.session_state.room_number, len(ROOMS) - 1)] = "🕴"
+    st.write("".join(track) + "🚪")
 
     # GAME OVER SCREEN (the TRAPPED ending)
     # Waits until the last outcome has been shown.
     if st.session_state.health <= 0 and not st.session_state.action_complete:
+        tint_background(RED_TINT)
+
         show_room(
             "💀 TRAPPED",
-            "Your strength gives out. The security guards close in and "
+            f"Your nerve gives out, **{name}**. The security guards close in and "
             "stop your escape. The heist is over."
         )
+        st.write(f"Try again next time, {name}.")
 
         if st.button("Try Again"):
             restart_game()
@@ -336,13 +397,23 @@ else:
         ending = get_ending()
         style, title, text = ENDINGS[ending]
 
-        st.header("🏆 YOU ESCAPED THE GALLERY!")
-        st.balloons()
+        st.header(f"🏆 {name} escaped the gallery!")
 
         getattr(st, style)(title)
         st.write(text)
 
-        st.write(f"Final health: {st.session_state.health}/{st.session_state.max_health}")
+        # Plain lines on purpose: joining st calls with "and" makes
+        # Streamlit print a stray "None" on the page.
+        if ending == "TRACED":
+            tint_background(RED_TINT)
+            st.write(f"You got out, {name}, but expect a knock on the door. "
+                     "Next time, wear the gloves and kill the cameras.")
+        else:
+            tint_background(GREEN_TINT)
+            st.success(f"Good job, {name}!")
+            st.balloons()
+
+        st.write(f"Final Nerve: {st.session_state.health}/{st.session_state.max_health}")
         st.write(f"Final inventory: {', '.join(st.session_state.inventory)}")
 
         if st.button("Play Again"):
@@ -367,11 +438,11 @@ else:
 
         show_room(
             "🏛️ The Foyer",
-            "You walk into the gallery. Today is the day! The security guard "
-            "is distracted at the front desk. You need to make your way further inside."
+            f"**{name}**, today is the day! The guard is distracted at the "
+            "front desk. You need to make your way further inside."
         )
 
-        st.write("Your torch is ready. There is no turning back now.")
+        st.write("Your **torch** is ready. There is no turning back now.")
         show_continue_button("🚪 Leave the foyer")
 
     elif room == "corridor":
@@ -427,7 +498,7 @@ else:
             else:
                 st.caption("🪪 Security pass in your bag.")
 
-            st.write("You need to decide what to do about the cameras.")
+            st.write(f"{name}, you need to decide what to do about the **cameras**.")
 
             left, right = st.columns(2)
 
@@ -451,10 +522,11 @@ else:
 
         # Step 2: roll the dice
         elif stage == "roll":
-            st.write("You reach for the control panel. Roll to see if you get it right.")
-
-            if has_item("Torch"):
-                st.caption(f"🔦 Your torch helps you read the panel: +{BONUS} to this roll.")
+            show_roll_rules(
+                "switch off the cameras so the guards cannot trace you.",
+                "Torch",
+                "🔦 Your torch helps you read the panel"
+            )
 
             if st.button("🎲 Roll the dice"):
                 final_roll, roll_text = roll_with_bonus("Torch")
@@ -489,7 +561,7 @@ else:
 
         show_room(
             "🖼️ The Main Gallery",
-            "You step into the main gallery. A motion sensor is fitted beside "
+            "You step into the main gallery. A **motion sensor** is fitted beside "
             "the display of the painting you came to steal."
         )
 
@@ -513,11 +585,12 @@ else:
                 st.rerun()
 
         elif stage == "roll":
-            st.write("The motion sensor is watching. Steady hands. Roll to see "
-                     "if you can lift the painting quietly.")
-
-            if has_item("Black gloves"):
-                st.caption(f"🧤 Your gloves give you a steady grip: +{BONUS} to this roll.")
+            show_roll_rules(
+                "lift the painting without setting off the motion sensor.",
+                "Black gloves",
+                "🧤 Your gloves give you a steady grip"
+            )
+            st.caption("Fail and you still get the painting, but the alarm sounds.")
 
             if st.button("🎲 Roll the dice"):
                 final_roll, roll_text = roll_with_bonus("Black gloves")
@@ -557,11 +630,16 @@ else:
         show_room(
             "🔐 The Vault",
             "You find the vault behind the main gallery. Inside are valuable "
-            "jewels. You already have the painting, but there may be time to take "
-            "one more prize."
+            "**jewels**. You already have the painting, but there may be time to "
+            "take one more prize."
         )
 
         st.write("The painting is secured in your bag.")
+
+        if has_item("Security pass"):
+            st.caption("🪪 Your security pass should open the vault door.")
+        else:
+            st.caption("🪪 You have no security pass. The vault door looks sealed.")
 
         left, right = st.columns(2)
 
@@ -603,13 +681,19 @@ else:
 
         show_room(
             "🚨 The Getaway",
-            "You hear security guards shouting behind you. You have a second to "
-            "choose your way out."
+            f"You hear security guards shouting behind you, {name}. "
+            "You have a second to **choose your way out**."
         )
 
-        if has_item("Torch"):
-            st.caption(f"🔦 Your torch lights the staff corridor: +{BONUS} if you "
-                       "take the staff exit.")
+        st.markdown("🚪 **Staff exit:** roll the dice. Win and you catch your breath "
+                    f"(+{GETAWAY_HEAL} Nerve). Lose and a guard hurts you.")
+        st.markdown(f"🏃 **Go back:** no roll, but it costs **{BACKTRACK_DAMAGE} Nerve**.")
+
+        show_roll_rules(
+            "get through the staff corridor without running into a guard.",
+            "Torch",
+            "🔦 Your torch lights the staff corridor"
+        )
 
         left, right = st.columns(2)
 
@@ -663,11 +747,11 @@ else:
         show_room(
             "🚪 The Final Exit",
             "You reach the final door. The cold night air is just beyond it. "
-            "This is your last chance to escape the gallery."
+            "This is your **last chance** to escape the gallery."
         )
 
-        st.write("Your ending depends on your gloves, the CCTV "
-                 "system and what you managed to steal.")
+        st.write("Your ending depends on your **gloves**, the **CCTV "
+                 "system** and what you managed to **steal**.")
 
         if st.button("🔓 Escape the gallery"):
             story = generate_story(
