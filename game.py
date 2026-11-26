@@ -99,10 +99,10 @@ def show_player_info():
     left, right = st.columns(2)
 
     with left:
-        st.write(f"🔥 Health: {st.session_state.health} / {st.session_state.max_health}")
+        st.write(f"⛑️ Health: {st.session_state.health} / {st.session_state.max_health}")
 
     with right:
-        st.write(f"👜 Inventory: {', '.join(st.session_state.inventory)}")
+        st.write(f"💼 Inventory: {', '.join(st.session_state.inventory)}")
 
     st.caption(
         f"Room {min(st.session_state.room_number + 1, len(ROOMS))} "
