@@ -361,10 +361,8 @@ else:
     show_player_info()
     name = st.session_state.player_name
 
-    # st.progress(st.session_state.room_number / len(ROOMS))
-    # track = ["▫️"] * len(ROOMS)
-    # track[min(st.session_state.room_number, len(ROOMS) - 1)] = "🕴"
-    # st.write("".join(track) + "🚪")
+    current = min(st.session_state.room_number + 1, len(ROOMS))
+    st.progress(current / len(ROOMS), text=f"📍 Room {current} / {len(ROOMS)}")
 
     # GAME OVER SCREEN (the TRAPPED ending)
     # Waits until the last outcome has been shown.
@@ -440,7 +438,7 @@ else:
 
         show_room(
             "🚶‍♂️ The Corridor",
-            "You open your bag one last time to check you have everything."
+            "Should you open your bag one last time to check you have everything?"
         )
 
         left, right = st.columns(2)
@@ -519,11 +517,8 @@ else:
     "🔦 Your torch helps you read the panel"
 )
 
-            if st.button("🎲 Roll the dice"):
+            if st.button("🎲 Roll the dice", key="roll_cctv"):
                 final_roll, roll_text = roll_with_bonus("Torch")
-
-            if st.button("🎲 Roll the dice"):
-                final_roll, roll_text = roll_with_bonus()
                 st.session_state.cctv_stage = "choose"  # reset for a replay
 
                 action = "You try to disable the CCTV cameras before the guards notice."
@@ -586,7 +581,7 @@ else:
             )
             st.caption("Fail and you still get the painting, but the alarm sounds.")
 
-            if st.button("🎲 Roll the dice"):
+            if st.button("🎲 Roll the dice", key="roll_gallery"):
                 final_roll, roll_text = roll_with_bonus("Black gloves")
                 take_painting() 
                 st.session_state.gallery_stage = "choose" 
