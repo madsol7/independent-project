@@ -115,7 +115,7 @@ def show_result():
     if kind == "item":
         st.success(f"💼 NEW ITEM: {value}")
     elif kind == "damage":
-        st.error(f"💢 DAMAGE: You lose {value} Nerve.")
+        st.error(f"🪫💢 DAMAGE: You lose {value} Nerve.")
     elif kind == "heal":
         st.success(f"💖 HEALED: You recover {value} Nerve.")
     elif kind == "success":
@@ -208,7 +208,7 @@ Do not introduce new choices.
         return fallback_message
 
     except Exception:
-        # The game still works if Gemini is unavailable.
+        # works if Gemini is unavailable.
         return fallback_message
 
 
@@ -282,11 +282,10 @@ def tint_background(colour):
 # 7. ENDINGS
 # ================================================================
 def get_ending():
-    # Health 0 never gets here, the game over screen catches it first.
     if not has_item("Black gloves") or not st.session_state.cameras_disabled:
-        return "TRACED"              # you got out, but they have evidence
+        return "TRACED"              # player left fingerprints/cctv on
     if has_item("Jewels"):
-        return "PERFECT HEIST"       # gloves, no CCTV, vault looted
+        return "PERFECT HEIST"       # gloves, no CCTV, vault completed
     return "CLEAN ESCAPE"            # painting only, no traces
 
 
@@ -456,14 +455,11 @@ else:
 
         with right:
             if st.button("➡️ Don't open your bag"):
-                take_damage(CORRIDOR_DAMAGE)
 
                 set_result(
-                    "damage",
-                    "You close your bag, worried it will draw attention. Your "
+                    "You close your bag, worried it will take up unnecessary time.  "
                     "bare hands brush the door handle and the wall as you move "
                     "on... You have left fingerprints behind.",
-                    CORRIDOR_DAMAGE
                 )
 
     elif room == "cctv":
