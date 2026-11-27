@@ -457,10 +457,11 @@ else:
             if st.button("➡️ Don't open your bag"):
 
                 set_result(
-                    "You close your bag, worried it will take up unnecessary time.  "
-                    "bare hands brush the door handle and the wall as you move "
-                    "on... You have left fingerprints behind.",
-                )
+                "neutral",
+                "You close your bag, worried it will take up unnecessary time. "
+                "Your bare hands brush the door handle and the wall as you move "
+                "on... You have left fingerprints behind."
+        )
 
     elif room == "cctv":
 
